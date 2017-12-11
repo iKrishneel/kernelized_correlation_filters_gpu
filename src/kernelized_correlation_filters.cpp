@@ -417,10 +417,6 @@ void KernelizedCorrelationFiltersGPU::track(
      }
      cudaFree(d_features);
      
-     /**
-      * PSR of max_response
-      */
-     
      int wsize = 10;
      
      //! outter outterrect
@@ -467,10 +463,6 @@ void KernelizedCorrelationFiltersGPU::track(
      
      std::cout << "\033[35mPSR RATION: " << psr_ratio << "\t"
                << "\033[0m\n";
-     /**
-      * END PSR
-      */
-     
      
      // sub pixel quadratic interpolation from neighbours
      // wrap around to negative half-space of vertical axis
@@ -511,7 +503,6 @@ void KernelizedCorrelationFiltersGPU::track(
      current_scale_ = (current_scale_ > min_max_scale_[1]) ?
         min_max_scale_[1] : current_scale_;
 
-
      //! DRN for scale estimation
      if (this->is_drn_set_ && this->use_drn_) {
         cv::Mat im_plot = img.clone();
@@ -541,47 +532,16 @@ void KernelizedCorrelationFiltersGPU::track(
            float rate = static_cast<float>(box_estimate.area()) /
               static_cast<float>(getBBox().getRect().area());
 
-           std::cout << img.size()  << "\n";
-           std::cout << "rate: " << rate << " "
-                     << 1.0f/ scale_momentum_  << "\n";
-           cv::rectangle(im_plot, getBBox().getRect(),
-                         cv::Scalar(128, 255, 0), 3);
-
-
            bool is_process = false;
            // if (rate > 1.0f / this->scale_momentum_ &&
            //     rate < this->scale_momentum_)
            {
-              ROS_WARN("UPDATING...");
               is_process = true;
               this->pose_.w = box_estimate.br().x - box_estimate.tl().x;
               this->pose_.h = box_estimate.br().y - box_estimate.tl().y;
               this->pose_.cx = box_estimate.tl().x + this->pose_.w/2.;
               this->pose_.cy = box_estimate.tl().y + this->pose_.h/2.;
            }
-           /*
-           else if (rate < 1.0f / this->scale_momentum_ && !isnan(rate)) {
-              ROS_WARN("FASTER CHANGE DETECTED");
-              this->pose_.w = box_estimate.br().x - box_estimate.tl().x;
-              this->pose_.h = box_estimate.br().y - box_estimate.tl().y;
-              // this->pose_.cx = box_estimate.tl().x + this->pose_.w/2.;
-              // this->pose_.cy = box_estimate.tl().y + this->pose_.h/2.;
-              this->pose_.w /= this->scale_momentum_;
-              this->pose_.h /= this->scale_momentum_;
-              is_process = true;
-           } else if (rate > this->scale_momentum_ && !isnan(rate)) {
-              ROS_WARN("FASTER CHANGE DETECTED");
-              this->pose_.w = box_estimate.br().x - box_estimate.tl().x;
-              this->pose_.h = box_estimate.br().y - box_estimate.tl().y;
-              // this->pose_.cx = box_estimate.tl().x + this->pose_.w/2.;
-              // this->pose_.cy = box_estimate.tl().y + this->pose_.h/2.;
-              this->pose_.w *= this->scale_momentum_;
-              this->pose_.h *= this->scale_momentum_;
-              is_process = true;
-           }
-           */
-           
-           cv::rectangle(im_plot, box_estimate, cv::Scalar(255, 0, 255), 3);
            
            if (this->resize_image_ && is_process) {
               // this->pose_.cx = this->pose_.cx * 2;
@@ -589,20 +549,10 @@ void KernelizedCorrelationFiltersGPU::track(
               this->pose_.scale(0.5);
            }
         }
-        cv::rectangle(im_plot, this->getBBox().getRect(),
-                      cv::Scalar(0, 255, 128),  1);
-        
-        cv::imshow("image", im_plot);
-        // cv::imshow("prev_image", prev_img_);
-        cv::waitKey(3);
-        
         //! update previous info
         this->prev_img_ = img.clone();
         this->prev_rect_ = this->getBBox().getRect();
-
-
      }
-     
      
      // TODO(UPDATE): update the tracker online
      if (is_update_model_ && psr_ratio > this->psr_update_thresh_) {
