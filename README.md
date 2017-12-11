@@ -1,6 +1,7 @@
 kernelized_correlation_filters_gpu
 ====================================
 A correlation filters and deep learning based object tracking algorithm. The algorithm is implemented on the GPU using CUDA C++. 
+====================================
 
 Requirements
 ------------
