@@ -1,4 +1,4 @@
-kernelized_correlation_filters_gpu
+Kernelized Correlation Filters GPU
 ====================================
 A correlation filters and deep learning based object tracking algorithm. The algorithm is implemented on the GPU using CUDA C++. 
 
@@ -38,13 +38,14 @@ Make sure to set other appropriate paths.
 Running
 ------------
 ```bash
- $ roslaunch kernelized_correlation_filters_gpu kernelized_correlation_filters_gpu.launch
+ $ roslaunch kernelized_correlation_filters_gpu kernelized_correlation_filters_gpu.launch <options>
 ```
 
-## options:
+### options:
 In the launch file there are number of options that can be set according to how you what the algorithm to run. Brief descriptions are as follows:
   - `image` [sensor_msgs/Image]: - input image topic name
   - `headless` [Bool]:  - to visualize the intermediate results set it to `false`
   - `downside` [Int]: - (>= 1) specifies the factor for image reduction
   - `init_from_detector` [Bool]: - flag for alterning how the tracker will be initialized.
   - `runtype_without_uav` [Bool]: - flag to specify if tracking on uav so the tracker can use odom for height based scale estimation
+
