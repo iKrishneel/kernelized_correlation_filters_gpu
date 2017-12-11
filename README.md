@@ -9,9 +9,9 @@ Requirements
 - [ROS Indigo or higher](http://wiki.ros.org/kinetic)
 - [CUDA (7.5 or higher)](https://developer.nvidia.com/cuda-downloads)
 - [OpenCV 3.0 or higher](https://github.com/opencv/opencv)
-- [image_view] (https://github.com/ros-perception/image_pipeline)
-- [Caffe] (https://github.com/BVLC/caffe) 
-- [C++11] (https://en.wikipedia.org/wiki/C%2B%2B11)
+- [image_view](https://github.com/ros-perception/image_pipeline)
+- [Caffe](https://github.com/BVLC/caffe) 
+- [C++11](https://en.wikipedia.org/wiki/C%2B%2B11)
 
 Downloading the Package
 ------------
@@ -29,9 +29,10 @@ The package is a ROS node and can be complied using the catkin tools
 ```
 
 If you dont use ROS, you can comment out the ROS dependencies in the following three files: 
-- [CMakeLists.txt] (https://github.com/iKrishneel/kernelized_correlation_filters_gpu/blob/master/CMakeLists.txt)
-- [src/kernelized_correlation_filters_node.cpp] (https://github.com/iKrishneel/kernelized_correlation_filters_gpu/blob/master/src/kernelized_correlation_filters_node.cpp)
+- [CMakeLists.txt](https://github.com/iKrishneel/kernelized_correlation_filters_gpu/blob/master/CMakeLists.txt)
+- [src/kernelized_correlation_filters_node.cpp](https://github.com/iKrishneel/kernelized_correlation_filters_gpu/blob/master/src/kernelized_correlation_filters_node.cpp)
 - [include/kernelized_correlation_filters_gpu/kernelized_correlation_filters_node.h](https://github.com/iKrishneel/kernelized_correlation_filters_gpu/blob/master/include/kernelized_correlation_filters_gpu/kernelized_correlation_filters_node.h)
+
 Make sure to set other appropriate paths.
 
 Running
