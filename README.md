@@ -54,7 +54,7 @@ Results
 ------------
 The video results of this algorithm can be [viwed here](https://drive.google.com/drive/folders/1owpZppROkzcVwQ6uguLHjkqmszy1XNBB?usp=sharing)
 
-<img src="data/motocross.gif" width="250" height="140" /> <img src="data/mbzirc_rc.gif" width="250" height="140" /> <img src="data/mbzirc_human.gif" width="250" height="140" />
+<img src="data/motocross.gif" width="300" height="170" /> <img src="data/mbzirc_rc.gif" width="300" height="170" /> <img src="data/mbzirc_human.gif" width="300" height="170" />
 
 
 Reference
