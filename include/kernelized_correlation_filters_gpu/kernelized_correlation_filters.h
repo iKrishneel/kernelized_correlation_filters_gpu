@@ -6,15 +6,14 @@
 #define _KERNELIZED_CORRELATION_FILTERS_h_
 
 #include <kernelized_correlation_filters_gpu/fast_maths_kernel.h>
-#include <kernelized_correlation_filters_gpu/crop_feature_space.h>
-#include <kernelized_correlation_filters_gpu/loss_target_pursuit.h>
-#include <kernelized_correlation_filters_gpu/deep_feature_extraction.h>
+// #include <kernelized_correlation_filters_gpu/crop_feature_space.h>
+// #include <kernelized_correlation_filters_gpu/loss_target_pursuit.h>
+#include <kernelized_correlation_filters_gpu/dual_net_regression.h>
 #include <kernelized_correlation_filters_gpu/cosine_convolution_kernel.h>
 #include <kernelized_correlation_filters_gpu/gaussian_correlation_kernel.h>
 #include <kernelized_correlation_filters_gpu/bilinear_interpolation_kernel.h>
 #include <kernelized_correlation_filters_gpu/spatial_feature_pyramid_kernel.h>
 #include <kernelized_correlation_filters_gpu/discrete_fourier_transform_kernel.h>
-#include <kernelized_correlation_filters_gpu/tracking_target_detector.h>
 
 struct BoundingBox {
     double cx, cy, w, h;
@@ -43,22 +42,22 @@ class KernelizedCorrelationFiltersGPU {
     float interp_factor_;
     int cell_size_;
     cv::Mat cos_window_;
-    int num_scales_;
-    double scale_step_;
+    int num_scales_;  //! deprecate
+    double scale_step_;  //! deprecate
     double current_scale_;
-    std::string uav_name_;
+    float scale_momentum_;
 
     int windows_size_[2];
     double min_max_scale_[2];
     std::vector<double> scales_;
 
+    //! alloc reusable mem
     cufftComplex *dev_p_yf_;
     cufftComplex *dev_model_alphaf_;
     cufftComplex *dev_model_alphaf_num_;
     cufftComplex *dev_model_alphaf_den_;
     cufftComplex *dev_model_xf_;
-   
-    //! alloc reusable mem
+
     float *d_cos_conv_;
     cufftComplex *d_conj_mxf;
     float *d_summation_;
@@ -86,12 +85,11 @@ class KernelizedCorrelationFiltersGPU {
     int num_proposals_;
     bool use_max_boxes_;
 
-    //! redetection params
-    float similarity_thresh_;
-    float iou_thresh_;
-    std::vector<int> psr_hist_;
-    int psr_counter_;
+    bool use_drn_;
+    bool is_drn_set_;
    
+    boost::shared_ptr<caffe::Blob<float> > blob_info_;
+
     cv::Mat gaussianShapedLabels(double sigma, int dim1, int dim2);
     cv::Mat circularShift(const cv::Mat & patch, int x_rot, int y_rot);
     cv::Mat cosineWindowFunction(int dim1, int dim2);
@@ -100,14 +98,11 @@ class KernelizedCorrelationFiltersGPU {
     float getResponseCircular(cv::Point2i &, cv::Mat &);
     cv::Mat getSubwindow(const cv::Mat & input, int cx, int cy,
                          int size_x, int size_y);
-
-    bool detector_state_;
    
  protected:
-
     boost::shared_ptr<FeatureExtractor> feature_extractor_;
-    boost::shared_ptr<LostTargetPursuit> lostp_;
-    boost::shared_ptr<caffe::Blob<float> > blob_info_;
+    // boost::shared_ptr<LostTargetPursuit> lostp_;
+    boost::shared_ptr<DualNetRegression> regression_net_;
    
     int FILTER_SIZE_;  //! size of cnn codes
     int FILTER_BATCH_;  //! batch size
@@ -128,14 +123,13 @@ class KernelizedCorrelationFiltersGPU {
    
  public:
 
-    KernelizedCorrelationFiltersGPU(const std::string = std::string(),
-                                    const std::string = "S900");
+    KernelizedCorrelationFiltersGPU(const std::string = std::string());
     ~KernelizedCorrelationFiltersGPU();
    
     void init(cv::Mat &, const cv::Rect &);
     void setTrackerPose(BoundingBox &, cv::Mat &);
     void updateTrackerPosition(BoundingBox &);
-    bool track(cv::Mat &, const float = 1.0f);
+    void track(cv::Mat &, const float = 1.0f);
     BoundingBox getBBox();
     void setCaffeInfo(const std::string, const std::string, const std::string,
                       std::vector<std::string> &, const int);
@@ -154,12 +148,8 @@ class KernelizedCorrelationFiltersGPU {
     bool redetectTarget(cv::Rect_<int> &, const cv::Mat, const cv::Mat,
                         const cv::Rect_<int>);
     bool parseParamsFromFile(const std::string);
-    bool switchRedetection(const bool);
-
-
-    //! todo hide this
-    boost::shared_ptr<TrackingTargetDetector> detector_;
-    bool redetectTarget();
+    void setRegressionNet(const std::string, const std::string,
+                          const std::string, const int);
 };
 
 #endif  /*_KERNELIZED_CORRELATION_FILTERS_h_*/

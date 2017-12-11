@@ -2,7 +2,7 @@
 // The University of Tokyo, Japan
 // krishneel@jsk.imi.i.u-tokyo.ac.jp
 
-#include <uav_target_tracking/deep_feature_extraction.h>
+#include <kernelized_correlation_filters_gpu/deep_feature_extraction.h>
 
 FeatureExtractor::FeatureExtractor(
     const std::string m_weight, const std::string d_proto,
@@ -17,9 +17,13 @@ FeatureExtractor::FeatureExtractor(
        ROS_FATAL("MODEL PROTOTXT NOT FOUND!");
        return;
     }
+
+    ROS_INFO("MODEL INFO:");
+    std::cout << "\033[36m" << m_weight  << "\n";
+    std::cout << d_proto  << "\n";
+    std::cout << mean_file  << "\033[0m\n";
     
     ROS_INFO("\033[34m -- checking blob names ...\033[0m");
-    
     // this->setExtractionLayers(b_names, 1);
 
     ROS_INFO("\033[34m -- checking completed ...\033[0m");
@@ -56,7 +60,9 @@ bool FeatureExtractor::loadPreTrainedCaffeModels(
                                      data_layer->height());
 
     this->num_channels_ = data_layer->channels();
-    // this->setImageNetMean(mean_file);
+    if (!mean_file.empty()) {
+       this->setImageNetMean(mean_file);
+    }
     
     return true;
 }
@@ -73,7 +79,6 @@ void FeatureExtractor::getFeatures(
     if (this->mean_.empty()) {
        ROS_WARN_ONCE("IMAGENET MEAN NOT SET");
     }
-    
     caffe::Blob<float> *data_layer =
        this->feature_extractor_net_->input_blobs()[0];
     
@@ -87,8 +92,46 @@ void FeatureExtractor::getFeatures(
 
     this->preProcessImage(image, &input_channels);
     this->feature_extractor_net_->Forward();
-    
     return;
+}
+
+//! for dual net
+void FeatureExtractor::getFeatures(
+    cv::Mat image1, cv::Mat image2) {
+    if (image1.empty() || image2.empty()) {
+       return;
+    }
+    if (image1.channels() != 3) {
+       cv::cvtColor(image1, image1, CV_GRAY2BGR);
+    }
+    if (image2.channels() != 3) {
+       cv::cvtColor(image2, image2, CV_GRAY2BGR);
+    }
+    assert(this->feature_extractor_net_->phase() == caffe::TEST);
+    
+    caffe::Blob<float> *data_layer1 =
+       this->feature_extractor_net_->input_blobs()[0];
+    data_layer1->Reshape(1, this->num_channels_,
+                        this->input_geometry_.height,
+                        this->input_geometry_.width);
+
+    caffe::Blob<float> *data_layer2 =
+       this->feature_extractor_net_->input_blobs()[1];
+    data_layer2->Reshape(1, this->num_channels_,
+                         this->input_geometry_.height,
+                         this->input_geometry_.width);
+
+    this->feature_extractor_net_->Reshape();
+
+    std::vector<cv::Mat> image1_channels;
+    this->wrapInputLayer(&image1_channels, 0);
+
+    std::vector<cv::Mat> image2_channels;
+    this->wrapInputLayer(&image2_channels, 1);
+
+    this->preProcessImage(image1, &image1_channels, false);
+    this->preProcessImage(image2, &image2_channels, false);
+    this->feature_extractor_net_->Forward();
 }
 
 bool FeatureExtractor::getNamedBlob(
@@ -107,7 +150,8 @@ bool FeatureExtractor::getNamedBlob(
 }
 
 void FeatureExtractor::preProcessImage(
-    const cv::Mat& img, std::vector<cv::Mat>* input_channels) {
+    const cv::Mat& img, std::vector<cv::Mat>* input_channels,
+    bool check) {
     cv::Mat sample;
     if (img.channels() == 3 && num_channels_ == 1) {
        cv::cvtColor(img, sample, cv::COLOR_BGR2GRAY);
@@ -145,15 +189,17 @@ void FeatureExtractor::preProcessImage(
      * objects in input_channels. */
     cv::split(sample_normalized, *input_channels);
 
-    CHECK(reinterpret_cast<float*>(input_channels->at(0).data)
-          == this->feature_extractor_net_->input_blobs()[0]->cpu_data())
-       << "Input channels are not wrapping the input layer of the network.";
+    if (check) {
+       CHECK(reinterpret_cast<float*>(input_channels->at(0).data) ==
+             this->feature_extractor_net_->input_blobs()[0]->cpu_data()) <<
+          "Input channels are not wrapping the input layer of the network.";
+    }
 }
 
 void FeatureExtractor::wrapInputLayer(
-    std::vector<cv::Mat>* input_channels) {
+    std::vector<cv::Mat>* input_channels, const int index) {
     caffe::Blob<float>* input_layer =
-       this->feature_extractor_net_->input_blobs()[0];
+       this->feature_extractor_net_->input_blobs()[index];
     int width = input_layer->width();
     int height = input_layer->height();
     float* input_data = input_layer->mutable_cpu_data();

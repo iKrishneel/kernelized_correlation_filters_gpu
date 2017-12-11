@@ -1,5 +1,5 @@
 
-#include <uav_target_tracking/discrete_fourier_transform_kernel.h>
+#include <kernelized_correlation_filters_gpu/discrete_fourier_transform_kernel.h>
 
 __global__
 void cuFloatToComplexKernel(cufftComplex *d_complex,

@@ -8,15 +8,16 @@ Scale:
    pyramid_levels: 5
    use_scale: 0
    subgrid_scale: 0
+   scale_momentum: 1.10
 Localization:
    resize_image: 0
    subpixel_localization: 1
 Redetection:
-   update_template: 0
-   detect_lost_target: 1
-   update_threshold: 0.40
-   detection_threshold: 0.60
-   box_proposals: 5
+   update_template: 1
+   detect_lost_target: 0
+   update_threshold: 10.0
+   detection_threshold: 3.0
+   box_proposals: 15
    generate_max_boxes: 0
-   similarity_threshold: 0.5
-   box_iou_threshold: 0.6
+RegressionNet:
+   use_regression_net: 0

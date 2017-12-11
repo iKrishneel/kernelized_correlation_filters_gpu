@@ -1,5 +1,5 @@
 
-#include <uav_target_tracking/cosine_convolution_kernel.h>
+#include <kernelized_correlation_filters_gpu/cosine_convolution_kernel.h>
 
 __host__ __forceinline__
 void cuAssert(cudaError_t code, char *file, int line, bool abort) {

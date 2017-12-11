@@ -1,5 +1,5 @@
 
-#include <uav_target_tracking/bilinear_interpolation_kernel.h>
+#include <kernelized_correlation_filters_gpu/bilinear_interpolation_kernel.h>
 
 __global__ __forceinline__
 void bilinearInterpolationKernel(float * d_result,

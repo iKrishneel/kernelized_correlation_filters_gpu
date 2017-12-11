@@ -3,7 +3,7 @@
  * adapted from NVIDIA cuComplex.h
  */
 
-#include <uav_target_tracking/fast_maths_kernel.h>
+#include <kernelized_correlation_filters_gpu/fast_maths_kernel.h>
 
 /**
  * multiplication

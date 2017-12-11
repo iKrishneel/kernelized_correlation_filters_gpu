@@ -12,6 +12,12 @@
 #include <caffe/caffe.hpp>
 
 class FeatureExtractor {
+
+    enum NET_TYPE {
+       ALEXNET,
+       VGGNET,
+       GOOGLENET
+    };
    
  private:
     std::string pretrained_model_weights_;
@@ -36,10 +42,11 @@ class FeatureExtractor {
     void setExtractionLayers(std::vector<std::string>,
                              const int);
     void getFeatures(cv::Mat, const cv::Size = cv::Size(-1, -1));
+    void getFeatures(cv::Mat, cv::Mat);
     bool setImageNetMean(const std::string);
-    void wrapInputLayer(std::vector<cv::Mat>*);
+    void wrapInputLayer(std::vector<cv::Mat>*, const int = 0);
     void preProcessImage(const cv::Mat &,
-                         std::vector<cv::Mat>*);
+                         std::vector<cv::Mat>*, bool = true);
     bool getNamedBlob(boost::shared_ptr<caffe::Blob<float> > &,
                       const std::string);
 };

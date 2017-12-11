@@ -148,28 +148,6 @@ catkin_package(
 
 # set(PATH_GSLICR ${CMAKE_CURRENT_SOURCE_DIR}/src/drift_compensation/gslicr_engine)
 # add_subdirectory(${PATH_GSLICR}/ORUtils)
-# set(GSLICR_LIB
-#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_core_engine.h
-#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine.h
-#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine_GPU.h
-#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine_shared.h
-#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_core_engine.cpp
-#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine.cpp
-#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine_GPU.cu
-#   ${PATH_GSLICR}/gSLICr_Lib/objects/gSLICr_settings.h
-#   ${PATH_GSLICR}/gSLICr_Lib/objects/gSLICr_spixel_info.h
-#   ${PATH_GSLICR}/gSLICr_Lib/gSLICr_defines.h
-#   ${PATH_GSLICR}/gSLICr_Lib/gSLICr.h
-
-#   src/drift_compensation/object_proposal_generation.cpp
-#   src/drift_compensation/loss_target_pursuit.cpp
-#   src/drift_compensation/crop_feature_space.cu
-#   src/drift_compensation/superpixel_cluster_weights.cu
-#   src/drift_compensation/summed_area_table.cu
-
-#   src/drift_compensation/tracking_target_detector.cpp
-# )
-
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
@@ -192,7 +170,7 @@ include_directories(
 # add_executable(kernelized_correlation_filters_gpu_node src/uav_target_tracking_node.cpp)
 link_directories(${CAFFE_LINK_LIBRARAY})
 cuda_add_executable(kernelized_correlation_filters_gpu_node
-  src/uav_target_tracking_node.cpp
+  src/kernelized_correlation_filters_node.cpp
   src/kernelized_correlation_filters.cpp
   src/deep_feature_extraction.cpp
   src/cuda/cosine_convolution_kernel.cu
@@ -202,6 +180,14 @@ cuda_add_executable(kernelized_correlation_filters_gpu_node
   src/cuda/threadFenceReduction_kernel.cu
   src/cuda/fast_maths_kernel.cu
   src/cuda/spatial_feature_pyramid_kernel.cu
+
+  src/regression_network/dual_net_regression.cpp
+  src/regression_network/bounding_box.h
+  src/regression_network/bounding_box.cpp
+  src/regression_network/image_proc.h
+  src/regression_network/image_proc.cpp
+  src/regression_network/helper.h
+  src/regression_network/helper.cpp
 )
 cuda_add_cufft_to_target(kernelized_correlation_filters_gpu_node)
 cuda_add_cublas_to_target(kernelized_correlation_filters_gpu_node)

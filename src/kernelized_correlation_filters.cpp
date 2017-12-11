@@ -1,15 +1,17 @@
 // Copyright (C) 2016, 2017 by Krishneel Chaudhary @ JSK Lab,
 // The University of Tokyo, Japan
 
-#include <uav_target_tracking/kernelized_correlation_filters.h>
+#include <kernelized_correlation_filters_gpu/kernelized_correlation_filters.h>
 
 KernelizedCorrelationFiltersGPU::KernelizedCorrelationFiltersGPU(
-    const std::string param_filename, const std::string uav_name) :
-    uav_name_(uav_name), resize_image_(false), is_cnn_set_(false),
-    use_scale_(false), use_subgrid_scale_(false),
-    use_subpixel_localization_(true), is_update_model_(true),
-    use_max_boxes_(false), detect_lost_target_(true) {
-
+    const std::string param_filename) : resize_image_(false),
+                                        is_cnn_set_(false), use_scale_(false),
+                                        use_subgrid_scale_(false),
+                                        use_subpixel_localization_(true),
+                                        is_update_model_(true),
+                                        use_max_boxes_(false),
+                                        detect_lost_target_(true),
+                                        is_drn_set_(false), use_drn_(false) {
     padding_ = 1.0;
     output_sigma_factor_ = 0.1;
     kernel_sigma_ = 0.5;    // def = 0.5
@@ -22,28 +24,15 @@ KernelizedCorrelationFiltersGPU::KernelizedCorrelationFiltersGPU(
     psr_update_thresh_ = 10.0;
     psr_detect_thresh_ = 2.0;
     num_proposals_ = 5;
-    similarity_thresh_ = 0.5f;
-    iou_thresh_ = 0.5f;
-    psr_counter_ = 0;
     FILTER_SIZE_ = 0;
     FILTER_BATCH_ = 256;  //! change to read from caffe
-    
+
     if (!param_filename.empty()) {
        this->parseParamsFromFile(param_filename);
     } else {
        ROS_WARN("HYPERPARAMETER TUNING FILE NOT FOUND!");
        ROS_WARN("TRACKER WILL BE INIT WILL DEFAULT PARAMETERS!");
     }
-
-    // TODO(M100): SHUT IT DOWN IF ITS M100
-    // if (uav_name.compare("S900") == 0) {
-    this->detector_ = boost::shared_ptr<TrackingTargetDetector>(
-       new TrackingTargetDetector());
-    // }
-    
-    this->psr_hist_.clear();
-    this->psr_hist_.resize(3);
-    this->detector_state_ = this->detect_lost_target_;
     
     this->blob_info_ = boost::shared_ptr<caffe::Blob<float> >(
        new caffe::Blob<float>);
@@ -57,12 +46,32 @@ void KernelizedCorrelationFiltersGPU::setCaffeInfo(
     this->feature_extractor_ = boost::shared_ptr<FeatureExtractor>(
        new FeatureExtractor(pretrained_weights, model_prototxt, mean_file,
                             feature_layers, device_id));
+    
     this->is_cnn_set_ = true;
+}
+
+void KernelizedCorrelationFiltersGPU::setRegressionNet(
+    const std::string pretrained_weights, const std::string model_prototxt,
+    const std::string mean_file, const int device_id) {
+    if (!this->use_drn_) {
+       ROS_WARN("REGRESSION NET WILL NOT BE LOADED!");
+       this->is_drn_set_ = false;
+       return;
+    }
+    if (pretrained_weights.empty() || model_prototxt.empty()) {
+       ROS_WARN("REGRESSION NET MODEL INFO NOT PROVIDED!");
+       ROS_WARN("TRACKER WILL RUN WITHOUT VISUAL SCALE ESTIMATION!");
+       this->is_drn_set_ = false;
+       return;
+    }
+    this->regression_net_ = boost::shared_ptr<DualNetRegression>(
+       new DualNetRegression(model_prototxt, pretrained_weights,
+                             mean_file, device_id));
+    this->is_drn_set_ = true;
 }
 
 void KernelizedCorrelationFiltersGPU::init(
     cv::Mat &img, const cv::Rect & bbox) {
-    // check boundary, enforce min size
     if (!this->is_cnn_set_) {
        ROS_FATAL("CAFFE CNN INFO NOT SET");
        return;
@@ -131,7 +140,7 @@ void KernelizedCorrelationFiltersGPU::init(
        this->scales_.push_back(1.);
     }
 
-    this->current_scale_ = 1.0;
+    this->current_scale_ = 1.;
 
     double min_size_ratio = std::max(5.0f * cell_size_/ windows_size_[0],
                                      5.0f * cell_size_/windows_size_[1]);
@@ -143,11 +152,11 @@ void KernelizedCorrelationFiltersGPU::init(
     min_max_scale_[0] = std::pow(scale_step_,
                                  std::ceil(std::log(min_size_ratio) /
                                            log(scale_step_)));
-    // min_max_scale_[1] = std::pow(scale_step_,
-    //                               std::floor(std::log(max_size_ratio) /
-    //                                          log(scale_step_)));
-    min_max_scale_[1] = std::min(img.rows, img.cols) /
-       std::max(bbox.width, bbox.height);
+    min_max_scale_[1] = std::pow(scale_step_,
+                                  std::floor(std::log(max_size_ratio) /
+                                             log(scale_step_)));
+    // min_max_scale_[1] = std::min(img.rows, img.cols) /
+    //    std::max(bbox.width, bbox.height);
 
     ROS_INFO("TRACKER INIT INFO");
     std::cout << "init: img size " << img.cols << " " << img.rows << std::endl;
@@ -215,6 +224,10 @@ void KernelizedCorrelationFiltersGPU::init(
     cudaMemcpy(d_cos_window_, cosine_window_1D, BYTE_, cudaMemcpyHostToDevice);
     cudaDeviceSynchronize();
     
+    /**
+     * GPU PROCESSING
+     */
+    
     //! allocate reusable memory
     //! reuse memories in other functions
     const int data_lenght = FILTER_BATCH_ * FILTER_SIZE_;
@@ -259,19 +272,16 @@ void KernelizedCorrelationFiltersGPU::init(
 
     float kf_yf_norm = kf_xf_norm;
     convertFloatToComplexGPU(&d_f2c_, dev_kxyf, FILTER_BATCH_, FILTER_SIZE_);
-    
     this->cuInvDFT(&d_ifft_, d_f2c_, handle_, FILTER_BATCH_, FILTER_SIZE_);
     invFFTSumOverFiltersGPU(&d_xysum_, d_ifft_, FILTER_BATCH_, FILTER_SIZE_);
     
     float normalizer = 1.0f / (static_cast<float>(FILTER_SIZE_*FILTER_BATCH_));
     cuGaussianExpGPU(d_xysum_, kf_xf_norm, kf_yf_norm, kernel_sigma_,
                      normalizer, FILTER_SIZE_);
-    
     convertFloatToComplexGPU(&d_f2c1_, d_xysum_, 1, FILTER_SIZE_);
     cuDFT(&d_kf_, d_f2c1_, cufft_handle1_, 1, FILTER_SIZE_);
-         
-     //! training on device
-     this->dev_model_alphaf_num_ = multiplyComplexGPU(
+
+    this->dev_model_alphaf_num_ = multiplyComplexGPU(
         dev_p_yf_, d_kf_, FILTER_SIZE_);
      addComplexByScalarGPU(&d_kzf_, d_kf_, static_cast<float>(lambda_),
                            FILTER_SIZE_);
@@ -282,14 +292,9 @@ void KernelizedCorrelationFiltersGPU::init(
 
      //! setup for redetection
      cv::Size nimg_size = cv::Size(img.cols/2, img.rows/2);
-
-     if (this->uav_name_.compare("M100") == 0) {
-        this->lostp_ = boost::shared_ptr<LostTargetPursuit>(
-           new LostTargetPursuit(nimg_size, this->num_proposals_,
-                                 this->iou_thresh_, this->similarity_thresh_,
-                                 this->use_max_boxes_));
-     }
-     
+     // this->lostp_ = boost::shared_ptr<LostTargetPursuait>(
+     //    new LostTargetPursuit(nimg_size, this->num_proposals_,
+     //                          this->use_max_boxes_));
      this->prev_img_ = img.clone();
      this->prev_rect_ = bbox;
      
@@ -332,7 +337,7 @@ BoundingBox KernelizedCorrelationFiltersGPU::getBBox() {
  * uav_height_<now>) / init
  */
 
-bool KernelizedCorrelationFiltersGPU::track(
+void KernelizedCorrelationFiltersGPU::track(
     cv::Mat &img, const float altitude_ratio) {
 
     cv::Mat input_rgb = img.clone();
@@ -406,13 +411,18 @@ bool KernelizedCorrelationFiltersGPU::track(
               &d_features, d_output, this->filter_size_.width,
               this->filter_size_.height, new_width, new_height,
               (new_width * new_height * FILTER_BATCH_), FILTER_BATCH_);
+           
            cudaFree(d_output);
         }
      }
      cudaFree(d_features);
      
+     /**
+      * PSR of max_response
+      */
+     
      int wsize = 10;
-     int psize = 2;
+     
      //! outter outterrect
      cv::Rect_<int> out_rect;
      out_rect.x = max_response_pt.x - wsize/2;
@@ -427,14 +437,13 @@ bool KernelizedCorrelationFiltersGPU::track(
         out_rect.y + out_rect.height - max_response_map.rows : 0;
           
      cv::Mat roi = max_response_map(out_rect).clone();
+
      float mean = 0.0;
      int icount = 0;
      for (int j = 0; j < roi.rows; j++) {
         for (int i = 0; i < roi.cols; i++) {
-           if ((i < max_response_pt.x - psize ||
-                i > max_response_pt.x + psize) ||
-               (j < max_response_pt.y - psize ||
-                j > max_response_pt.y + psize)) {
+           if ((i < max_response_pt.x - 1 || i > max_response_pt.x + 1) ||
+               (j < max_response_pt.y - 1 || j > max_response_pt.y + 1)) {
               mean += roi.at<float>(j, i);
               icount++;
            }
@@ -445,10 +454,8 @@ bool KernelizedCorrelationFiltersGPU::track(
      float demean = 0.0;
      for (int j = 0; j < roi.rows; j++) {
         for (int i = 0; i < roi.cols; i++) {
-           if ((i < max_response_pt.x - psize ||
-                i > max_response_pt.x + psize) ||
-               (j < max_response_pt.y - psize ||
-                j > max_response_pt.y + psize)) {
+           if ((i < max_response_pt.x - 1 || i > max_response_pt.x + 1) ||
+               (j < max_response_pt.y - 1 || j > max_response_pt.y + 1)) {
               demean += std::pow((roi.at<float>(j, i) - mean), 2);
            }
         }
@@ -456,13 +463,17 @@ bool KernelizedCorrelationFiltersGPU::track(
      float stddev = std::sqrt(demean / static_cast<float>(icount));
      double psr_ratio = (max_response - static_cast<double>(mean)) /
         static_cast<double>(stddev);
-     psr_ratio = -std::exp(-0.35 * psr_ratio) + 1.0;
-     
-     // std::cout << "\033[35mPSR RATION: " << psr_ratio << "\t"
-     //           << "\033[0m\n";
 
-     //! sub pixel quadratic interpolation from neighbours
-     //! wrap around to negative half-space of vertical axis
+     
+     std::cout << "\033[35mPSR RATION: " << psr_ratio << "\t"
+               << "\033[0m\n";
+     /**
+      * END PSR
+      */
+     
+     
+     // sub pixel quadratic interpolation from neighbours
+     // wrap around to negative half-space of vertical axis
      if (max_response_pt.y > max_response_map.rows / 2) {
         max_response_pt.y = max_response_pt.y - max_response_map.rows;
      }
@@ -483,20 +494,115 @@ bool KernelizedCorrelationFiltersGPU::track(
      this->pose_.cx = (pose_.cx > img.cols - 1) ? img.cols - 1 : pose_.cx;
      this->pose_.cy = (pose_.cy < 0) ? 0.0 : pose_.cy;
      this->pose_.cy = (pose_.cy > img.rows - 1) ? img.rows - 1 : pose_.cy;
+
      
      // sub grid scale interpolation
      double new_scale = scales_[scale_index];
      if (use_subgrid_scale_) {
         new_scale = subGridScale(scale_responses, scale_index);
      }
-     
+
+     //! uav altitude based height estimation
      current_scale_ *= new_scale;
-     current_scale_ *= static_cast<double>(altitude_ratio);  //! >>
+     current_scale_ *= static_cast<double>(altitude_ratio);
 
      current_scale_ = (current_scale_ < min_max_scale_[0]) ?
         min_max_scale_[0] : current_scale_;
      current_scale_ = (current_scale_ > min_max_scale_[1]) ?
         min_max_scale_[1] : current_scale_;
+
+
+     //! DRN for scale estimation
+     if (this->is_drn_set_ && this->use_drn_) {
+        cv::Mat im_plot = img.clone();
+        
+        if (!this->prev_img_.empty() && this->scale_momentum_ > 0.0f &&
+            this->prev_img_.size() == img.size()) {
+
+           //! padd previous box slightly
+           int b_pad = 0;
+           cv::Rect_<int> temp_rect = getBBox().getRect();
+           if (b_pad > 0) {
+              temp_rect.x = (temp_rect.x - b_pad < 0) ? 0 : temp_rect.x - b_pad;
+              temp_rect.y = (temp_rect.y - b_pad < 0) ? 0 : temp_rect.y - b_pad;
+              temp_rect.width += (b_pad * 2);
+              temp_rect.height += (b_pad * 2);
+              temp_rect.width -= (temp_rect.br().x + b_pad > img.cols) ?
+                 temp_rect.br().x - img.cols : 0;
+              temp_rect.height -= (temp_rect.br().y + b_pad > img.rows) ?
+                 temp_rect.br().y - img.rows : 0;
+           }
+           
+           cv::Rect_<int> box_estimate;
+           this->regression_net_->correspondance(
+              box_estimate, img, temp_rect, this->prev_img_, this->prev_rect_);
+
+           //! check growth rate
+           float rate = static_cast<float>(box_estimate.area()) /
+              static_cast<float>(getBBox().getRect().area());
+
+           std::cout << img.size()  << "\n";
+           std::cout << "rate: " << rate << " "
+                     << 1.0f/ scale_momentum_  << "\n";
+           cv::rectangle(im_plot, getBBox().getRect(),
+                         cv::Scalar(128, 255, 0), 3);
+
+
+           bool is_process = false;
+           // if (rate > 1.0f / this->scale_momentum_ &&
+           //     rate < this->scale_momentum_)
+           {
+              ROS_WARN("UPDATING...");
+              is_process = true;
+              this->pose_.w = box_estimate.br().x - box_estimate.tl().x;
+              this->pose_.h = box_estimate.br().y - box_estimate.tl().y;
+              this->pose_.cx = box_estimate.tl().x + this->pose_.w/2.;
+              this->pose_.cy = box_estimate.tl().y + this->pose_.h/2.;
+           }
+           /*
+           else if (rate < 1.0f / this->scale_momentum_ && !isnan(rate)) {
+              ROS_WARN("FASTER CHANGE DETECTED");
+              this->pose_.w = box_estimate.br().x - box_estimate.tl().x;
+              this->pose_.h = box_estimate.br().y - box_estimate.tl().y;
+              // this->pose_.cx = box_estimate.tl().x + this->pose_.w/2.;
+              // this->pose_.cy = box_estimate.tl().y + this->pose_.h/2.;
+              this->pose_.w /= this->scale_momentum_;
+              this->pose_.h /= this->scale_momentum_;
+              is_process = true;
+           } else if (rate > this->scale_momentum_ && !isnan(rate)) {
+              ROS_WARN("FASTER CHANGE DETECTED");
+              this->pose_.w = box_estimate.br().x - box_estimate.tl().x;
+              this->pose_.h = box_estimate.br().y - box_estimate.tl().y;
+              // this->pose_.cx = box_estimate.tl().x + this->pose_.w/2.;
+              // this->pose_.cy = box_estimate.tl().y + this->pose_.h/2.;
+              this->pose_.w *= this->scale_momentum_;
+              this->pose_.h *= this->scale_momentum_;
+              is_process = true;
+           }
+           */
+           
+           cv::rectangle(im_plot, box_estimate, cv::Scalar(255, 0, 255), 3);
+           
+           if (this->resize_image_ && is_process) {
+              // this->pose_.cx = this->pose_.cx * 2;
+              // this->pose_.cy = this->pose_.cy * 2;
+              this->pose_.scale(0.5);
+           }
+        }
+        cv::rectangle(im_plot, this->getBBox().getRect(),
+                      cv::Scalar(0, 255, 128),  1);
+        
+        cv::imshow("image", im_plot);
+        // cv::imshow("prev_image", prev_img_);
+        cv::waitKey(3);
+        
+        //! update previous info
+        this->prev_img_ = img.clone();
+        this->prev_rect_ = this->getBBox().getRect();
+
+
+     }
+     
      
      // TODO(UPDATE): update the tracker online
      if (is_update_model_ && psr_ratio > this->psr_update_thresh_) {
@@ -538,74 +644,20 @@ bool KernelizedCorrelationFiltersGPU::track(
                            this->dev_model_alphaf_den_, FILTER_SIZE_);
 
      }
-     
+
+     //! for redetecting lost or drifted target
      if (psr_ratio < this->psr_detect_thresh_ && this->detect_lost_target_) {
-        cv::Rect_<int> box = cv::Rect_<int>(-1, -1, -1, -1);
-        bool detect_status = false;
-        if (this->uav_name_.compare("M100") == 0) {
-           detect_status = this->redetectTarget(box, img, this->prev_img_,
-                                                this->prev_rect_);
-        } else if (this->uav_name_.compare("S900") == 0) {
-           detect_status = this->detector_->detect(box);
-           if (this->resize_image_) {
-              box.x /= 2;
-              box.y /= 2;
-              box.width /= 2;
-              box.height /= 2;
-           }
-        } else {
-           ROS_ERROR("UNKNOWN UAV PLATFORM");
-        }
-        if (detect_status &&
-           box.x >= 0 && box.y >= 0 && box.width > 16 && box.height > 16) {
-           current_scale_ = 1.0f;  //! reset the scale
+        ROS_WARN("REDETECTING LOST TARGET");
+
+        cv::Rect_<int> box;
+        if (this->redetectTarget(box, img, this->prev_img_, this->prev_rect_)) {
            this->pose_.w = box.br().x - box.tl().x;
            this->pose_.h = box.br().y - box.tl().y;
            this->pose_.cx = box.tl().x + this->pose_.w/2.;
            this->pose_.cy = box.tl().y + this->pose_.h/2.;
         }
      }
-     
-     //! reporting lost target
-     /*
-     const int history_window = 3;
-     if (psr_ratio < this->psr_detect_thresh_) {
-        this->psr_hist_[this->psr_counter_] = -1;
-     } else {
-        this->psr_hist_[this->psr_counter_] = 1;
-     }
-     this->psr_counter_++;
-     this->psr_counter_ = this->psr_counter_ < history_window ?
-                                               this->psr_counter_ : 0;
-     
-     bool status_object = false;
-     for (int i = 0; i < this->psr_hist_.size(); i++) {
-        if (this->psr_hist_[i] == 1) {
-           status_object = true;
-           break;
-        }
-     }
-     return status_object;
-     */
-}
 
-bool KernelizedCorrelationFiltersGPU::redetectTarget() {
-    cv::Rect_<int> box = cv::Rect_<int>(-1, -1, -1, -1);
-    bool detect_status = this->detector_->detect(box);
-    if (this->resize_image_) {
-       box.x /= 2;
-       box.y /= 2;
-       box.width /= 2;
-       box.height /= 2;
-    }
-    if (detect_status) {
-       current_scale_ = 1.0f;  //! reset the scale
-       this->pose_.w = box.br().x - box.tl().x;
-       this->pose_.h = box.br().y - box.tl().y;
-       this->pose_.cx = box.tl().x + this->pose_.w/2.;
-       this->pose_.cy = box.tl().y + this->pose_.h/2.;
-    }
-    return detect_status;
 }
 
 float* KernelizedCorrelationFiltersGPU::getFeaturesGPU(
@@ -616,8 +668,8 @@ float* KernelizedCorrelationFiltersGPU::getFeaturesGPU(
 
     cv::Mat patch_rgb = getSubwindow(input_rgb, cx, cy,
                                      size_x_scaled, size_y_scaled);
-    boost::shared_ptr<caffe::Blob<float> > blob_info(new caffe::Blob<float>);
 
+    boost::shared_ptr<caffe::Blob<float> > blob_info(new caffe::Blob<float>);
     this->feature_extractor_->getFeatures(patch_rgb, filter_size_);
     this->feature_extractor_->getNamedBlob(blob_info, "conv5");
     
@@ -1022,7 +1074,7 @@ void KernelizedCorrelationFiltersGPU::cuInvDFT(
                        FILTER_SIZE, FILTER_BATCH, true);
 }
 
-//! function for built in redetector
+
 bool KernelizedCorrelationFiltersGPU::redetectTarget(
     cv::Rect_<int> &object_rect, const cv::Mat in_img, const cv::Mat p_img,
     const cv::Rect_<int> p_rect) {
@@ -1051,10 +1103,8 @@ bool KernelizedCorrelationFiltersGPU::redetectTarget(
     const float *d_features = this->vectorizedCNNCodes(
        blob_size, batch, count, src_img, blob_name);
     cudaDeviceSynchronize();
-
-    /// TODO(FUNCTION): create new function with same functionality
-    float *d_fsum = invFFTSumOverFiltersGPU(
-       d_features, batch, blob_size.width * blob_size.height);
+    float *d_fsum = invFFTSumOverFiltersGPU(d_features, batch,
+                                           blob_size.width * blob_size.height);
     cudaDeviceSynchronize();
     
     float *d_data = bilinearInterpolationGPU(
@@ -1066,16 +1116,42 @@ bool KernelizedCorrelationFiltersGPU::redetectTarget(
     size_t lenght = src_img.cols * src_img.rows;
     int max_index = 0;
     this->cublas_status_ = cublasIsamax(this->cublas_handle_, lenght,
-                                        d_data, 1, &max_index);
+                                  d_data, 1, &max_index);
     max_index -= 1;
     cudaDeviceSynchronize();
 
     normalizeByFactorInArrayGPU(d_data, max_index, 1, lenght);
     cudaDeviceSynchronize();
     
+    //! ----------------------------------
+    /*
+    int byte = src_img.cols * src_img.rows * sizeof(float);
+    float *output = reinterpret_cast<float*>(std::malloc(byte));
+    cudaMemcpy(output, d_data, byte, cudaMemcpyDeviceToHost);
     
-    bool proposal = this->lostp_->lostTrargetDetection(
-       object_rect, prev_img, prev_rect, d_data, src_img, d_data);
+    cv::Mat img1 = cv::Mat::zeros(src_img.size(), CV_32F);
+    for (int i = 0; i < img1.rows; i++) {
+       for (int j = 0; j < img1.cols; j++) {
+          img1.at<float>(i, j) = output[j + (i * img1.cols)];
+       }
+    }
+    // cv::resize(img1, img1, cv::Size(448, 448));
+    cv::imshow("filter", img1);
+
+    cv::Mat img2;
+    cv::integral(img1, img2);
+    std::cout << img2  << "\n";
+    
+    cv::Mat pimg = prev_img(prev_rect);
+    cv::imshow("prev", pimg);
+    return -1;
+    */
+    //! ----------------------------------
+
+
+    bool proposal;
+    // proposal = this->lostp_->lostTrargetDetection(
+    //    object_rect, prev_img, prev_rect, d_data, src_img, d_data);
     if (proposal) {
        object_rect.x *= 2;
        object_rect.y *= 2;
@@ -1085,6 +1161,7 @@ bool KernelizedCorrelationFiltersGPU::redetectTarget(
     
     cudaFree(d_fsum);
     cudaFree(d_data);
+
     return proposal;
 }
 
@@ -1146,14 +1223,7 @@ void KernelizedCorrelationFiltersGPU::filterVisualization(
     cv::applyColorMap(all_filters, all_filters, cv::COLORMAP_JET);
     cv::namedWindow("filters", CV_WINDOW_NORMAL);
     cv::imshow("filters", all_filters);
-}
-
-bool KernelizedCorrelationFiltersGPU::switchRedetection(
-    const bool status) {
-    if (this->detector_state_) {
-      this->detect_lost_target_ = status;
-    }
-    return this->detect_lost_target_;
+    // cv::waitKey(0);
 }
 
 bool KernelizedCorrelationFiltersGPU::parseParamsFromFile(
@@ -1177,6 +1247,7 @@ bool KernelizedCorrelationFiltersGPU::parseParamsFromFile(
     this->use_scale_ = static_cast<int>(n["use_scale"]) != 0 ? true : false;
     this->use_subgrid_scale_ = static_cast<int>(n["subgrid_scale"]) != 0 ?
        true : false;
+    this->scale_momentum_ = static_cast<float>(n["scale_momentum"]);
     
     n = files->operator[]("Localization");
     this->resize_image_ = static_cast<int>(n["resize_image"]) != 0 ?
@@ -1194,8 +1265,11 @@ bool KernelizedCorrelationFiltersGPU::parseParamsFromFile(
     this->num_proposals_ = static_cast<int>(n["box_proposals"]);
     this->use_max_boxes_ = static_cast<int>(n["generate_max_boxes"]) != 0 ?
        true : false;
-    this->similarity_thresh_ = static_cast<float>(n["similarity_threshold"]);
-    this->iou_thresh_ = static_cast<float>(n["box_iou_threshold"]);
+
+    //! hyperparams for reg net
+    n = files->operator[]("RegressionNet");
+    this->use_drn_ = static_cast<int>(n["use_regression_net"]) != 0 ?
+       true : false;
     
     return true;
 }

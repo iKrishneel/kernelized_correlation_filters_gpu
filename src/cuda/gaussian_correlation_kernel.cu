@@ -1,5 +1,5 @@
 
-#include <uav_target_tracking/gaussian_correlation_kernel.h>
+#include <kernelized_correlation_filters_gpu/gaussian_correlation_kernel.h>
 
 
 __device__ __forceinline__

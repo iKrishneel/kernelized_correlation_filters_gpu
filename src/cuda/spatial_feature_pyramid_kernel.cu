@@ -1,5 +1,5 @@
 
-#include <uav_target_tracking/spatial_feature_pyramid_kernel.h>
+#include <kernelized_correlation_filters_gpu/spatial_feature_pyramid_kernel.h>
 
 
 __global__ __forceinline__

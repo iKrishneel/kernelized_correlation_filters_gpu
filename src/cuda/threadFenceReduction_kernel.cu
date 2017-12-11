@@ -17,7 +17,7 @@
 // #define _REDUCE_KERNEL_H_
 
 #include <device_functions.h>
-#include <uav_target_tracking/threadFenceReduction_kernel.h>
+#include <kernelized_correlation_filters_gpu/threadFenceReduction_kernel.h>
 
 /*
     Parallel sum reduction using shared memory
