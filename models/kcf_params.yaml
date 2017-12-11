@@ -1,0 +1,22 @@
+%YAML:1.0
+Learning:
+   learning_rate: 1e-4
+   interpolation_factor: 0.02
+   cell_size: 4
+Scale:
+   scale_step: 1.1
+   pyramid_levels: 5
+   use_scale: 0
+   subgrid_scale: 0
+Localization:
+   resize_image: 0
+   subpixel_localization: 1
+Redetection:
+   update_template: 0
+   detect_lost_target: 1
+   update_threshold: 0.40
+   detection_threshold: 0.60
+   box_proposals: 5
+   generate_max_boxes: 0
+   similarity_threshold: 0.5
+   box_iou_threshold: 0.6

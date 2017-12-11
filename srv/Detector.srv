@@ -1,0 +1,4 @@
+sensor_msgs/Image image
+nav_msgs/Odometry odometry
+---
+geometry_msgs/PolygonStamped bbox

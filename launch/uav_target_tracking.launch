@@ -1,0 +1,84 @@
+<launch>
+  <arg name="pretrained_weights" default="models/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel" />
+  <arg name="imagenet_mean" default="python/caffe/imagenet/imagenet_mean.binaryproto" />
+  <arg name="deployment_prototxt" default="$(find uav_target_tracking)/models/deploy.prototxt" />
+  <arg name="kcf_params" default="$(find uav_target_tracking)/models/kcf_params.yaml" />
+
+  <arg name="image" default="/camera/image_rect" />
+  <arg name="input_screen" default="$(arg image)/screenrectangle" />  
+  <arg name="odom" default="/dji_sdk/odometry" />
+  <arg name="info" default="/camera/fisheye_gimbal/camera_info" />
+
+  <arg name="init_image" default="/detector/output/image" />
+  <arg name="init_rect" default="/detector/output/rectangle" />
+  <arg name="init_odom" default="$(arg odom)" />
+
+  <arg name="rectangle_resizing_scale" default="1" />
+  <arg name="downsize" default="1" />
+  <arg name="headless" default="true" />
+
+  <arg name="run_on_uav" default="true" />
+  <arg name="run_as_srv" default="true" />
+  <arg name="init_from_detector" default="false" />
+  <arg name="uav_name" default="S900"/>
+  <arg name="activate_on_signal" default="true" />
+  
+  <node pkg="uav_target_tracking" type="uav_target_tracking_node"
+	name="uav_target_tracking" output="screen" >
+    <remap from="image" to="$(arg image)"/>
+    <remap from="input_screen" to="$(arg input_screen)"/>
+    <remap from="odom" to="$(arg odom)" />
+    <remap from="info" to="$(arg info)" />
+
+    <param name="rectangle_resizing_scale" value="$(arg rectangle_resizing_scale)" />
+    <param name="downsize" value="$(arg downsize)" />
+    <param name="headless" value="$(arg headless)" />
+    <param name="kcf_params" value="$(arg kcf_params)" />
+    <param name="run_on_uav" value="$(arg run_on_uav)" />
+    <param name="run_as_srv" value="$(arg run_as_srv)" />
+    <param name="init_from_detector" value="$(arg init_from_detector)" />
+    <param name="uav_name" value="$(arg uav_name)" />
+   
+    <remap from="init_image" to="$(arg init_image)" if="$(arg init_from_detector)" />
+    <remap from="init_rect" to="$(arg init_rect)" if="$(arg init_from_detector)" />
+    <remap from="init_odom" to="$(arg init_odom)" if="$(arg init_from_detector)" />
+
+    <param name="pretrained_weights" value="$(arg pretrained_weights)" />
+    <param name="model_prototxt" value="$(arg deployment_prototxt)" />
+    <param name="imagenet_mean" value="$(arg imagenet_mean)" /> 
+    <param name="activate_on_signal" value="$(arg activate_on_signal)" />
+
+    <remap from="activation_signal" to="/task1_arrive_gps_point" />
+  </node>
+
+  <!-- load the detector node -->
+  <include file="$(find uav_vehicle_detector)/launch/uav_heliport_detector.launch" >
+    <arg name="run_as_srv" value="$(arg run_as_srv)" />
+    <arg name="run_on_uav" value="$(arg run_on_uav)" />
+    <arg name="headless" value="$(arg headless)" />
+    <!-- <arg name="image" value="$(arg image)" unless="$(arg run_as_srv)" /> -->
+  </include>
+
+  <!-- gimbal fisheye fov  -->
+  <node pkg="uav_target_tracking" type="gimbal_fisheye_fov.py"
+        name="gimbal_fisheye_fov" output="screen" >
+    <param name = "mode" value = "1" />
+    <param name = "height_offset" value = "0" />
+    <param name = "odom_sub_topic_name" value ="/dji_sdk/odometry" />
+    <param name = "fov_pub_topic_name" value = "/camera/fisheye_gimbal/max_degree" />
+    <param name = "scale_pub_topic_name" value = "/camera/fisheye_gimbal/image_scale" />
+  </node>
+
+  <group unless="$(arg headless)" >
+    <node pkg="image_view2" type="image_view2"
+    	  name="image_view2" output="screen">
+      <remap from="image" to="$(arg image)"/>
+    </node>
+    
+    <node pkg="image_view" type="image_view"
+    	  name="image_view" output="screen">
+      <remap from="image" to="/uav_target_tracking/output/image"/>
+    </node>
+  </group>
+
+</launch>
