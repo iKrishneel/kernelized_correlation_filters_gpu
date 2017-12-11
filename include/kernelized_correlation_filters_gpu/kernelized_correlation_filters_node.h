@@ -3,8 +3,8 @@
 // krishneel@jsk.imi.i.u-tokyo.ac.jp
 
 #pragma once
-#ifndef _KERNELIZED_CORRELATION_FILTERS_H_
-#define _KERNELIZED_CORRELATION_FILTERS_H_
+#ifndef _KERNELIZED_CORRELATION_FILTERS_NODE_H_
+#define _KERNELIZED_CORRELATION_FILTERS_NODE_H_
 
 #include <ros/ros.h>
 #include <ros/console.h>
@@ -21,7 +21,7 @@
 #include <nav_msgs/Odometry.h>
 #include <kernelized_correlation_filters_gpu/kernelized_correlation_filters.h>
 
-class UAVTargetTracking {
+class KCFTargetTracking {
    
  private:
     typedef message_filters::sync_policies::ApproximateTime<
@@ -69,7 +69,7 @@ class UAVTargetTracking {
     boost::shared_ptr<KernelizedCorrelationFiltersGPU> tracker_;
    
  public:
-    UAVTargetTracking(ros::NodeHandle nh, ros::NodeHandle pnh);
+    KCFTargetTracking(ros::NodeHandle nh, ros::NodeHandle pnh);
     void imageCB(
        const sensor_msgs::Image::ConstPtr &);
     void screenPtCB(
@@ -88,4 +88,4 @@ class UAVTargetTracking {
 };
 
 
-#endif /* _KERNELIZED_CORRELATION_FILTERS_H_ */
+#endif /* _KERNELIZED_CORRELATION_FILTERS_NODE_H_ */

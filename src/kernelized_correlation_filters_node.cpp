@@ -4,7 +4,7 @@
 
 #include <kernelized_correlation_filters_gpu/kernelized_correlation_filters_node.h>
 
-UAVTargetTracking::UAVTargetTracking(
+KCFTargetTracking::KCFTargetTracking(
     ros::NodeHandle nh, ros::NodeHandle pnh) :
     nh_(nh), pnh_(pnh), block_size_(8), tracker_init_(false),
     without_uav_(true), prev_scale_(1.0f), init_via_detector_(false) {
@@ -97,7 +97,7 @@ UAVTargetTracking::UAVTargetTracking(
     this->onInit();
 }
 
-void UAVTargetTracking::onInit() {
+void KCFTargetTracking::onInit() {
      this->subscribe();
      this->pub_image_ = nh_.advertise<sensor_msgs::Image>(
          "target", 1);
@@ -105,10 +105,10 @@ void UAVTargetTracking::onInit() {
         "/object_image_center", sizeof(char));
 }
 
-void UAVTargetTracking::subscribe() {
+void KCFTargetTracking::subscribe() {
      if (this->without_uav_) {
         this->sub_image_ = this->nh_.subscribe(
-           "image", 1, &UAVTargetTracking::imageCB, this);
+           "image", 1, &KCFTargetTracking::imageCB, this);
      } else {
         this->msub_image_.subscribe(this->nh_, "image", 1);
         this->msub_odom_.subscribe(this->nh_, "odom", 1);
@@ -116,7 +116,7 @@ void UAVTargetTracking::subscribe() {
                                             SyncPolicy> >(100);
         this->sync_->connectInput(this->msub_image_, this->msub_odom_);
         this->sync_->registerCallback(
-           boost::bind(&UAVTargetTracking::imageOdomCB, this, _1, _2));
+           boost::bind(&KCFTargetTracking::imageOdomCB, this, _1, _2));
      }
 
      if (this->init_via_detector_) {
@@ -128,15 +128,15 @@ void UAVTargetTracking::subscribe() {
         this->init_sync_->connectInput(this->init_image_, this->init_rect_,
                                        this->init_odom_);
         this->init_sync_->registerCallback(
-           boost::bind(&UAVTargetTracking::imageAndScreenPtCB, this,
+           boost::bind(&KCFTargetTracking::imageAndScreenPtCB, this,
                        _1, _2, _3));
      } else {
         this->sub_screen_pt_ = this->nh_.subscribe(
-           "input_screen", 1, &UAVTargetTracking::screenPtCB, this);
+           "input_screen", 1, &KCFTargetTracking::screenPtCB, this);
      }
 }
 
-void UAVTargetTracking::unsubscribe() {
+void KCFTargetTracking::unsubscribe() {
     if (this->without_uav_) {
        this->sub_image_.shutdown();
     } else {
@@ -145,7 +145,7 @@ void UAVTargetTracking::unsubscribe() {
     }
 }
 
-void UAVTargetTracking::screenPtCB(
+void KCFTargetTracking::screenPtCB(
      const geometry_msgs::PolygonStamped &screen_msg) {
    
     if (screen_msg.polygon.points.size() == 0) {
@@ -176,7 +176,7 @@ void UAVTargetTracking::screenPtCB(
     }
 }
 
-void UAVTargetTracking::imageAndScreenPtCB(
+void KCFTargetTracking::imageAndScreenPtCB(
     const sensor_msgs::Image::ConstPtr &image_msg,
     const geometry_msgs::PolygonStamped::ConstPtr &screen_msg,
     const nav_msgs::Odometry::ConstPtr &odom_msg) {
@@ -215,7 +215,7 @@ void UAVTargetTracking::imageAndScreenPtCB(
     }
 }
 
-cv::Mat UAVTargetTracking::imageMsgToCvImage(
+cv::Mat KCFTargetTracking::imageMsgToCvImage(
     const sensor_msgs::Image::ConstPtr &image_msg) {
     cv_bridge::CvImagePtr cv_ptr;
     try {
@@ -234,7 +234,7 @@ cv::Mat UAVTargetTracking::imageMsgToCvImage(
 }
 
 
-void UAVTargetTracking::imageCB(
+void KCFTargetTracking::imageCB(
     const sensor_msgs::Image::ConstPtr &image_msg) {
     
     std::clock_t start;
@@ -302,7 +302,7 @@ void UAVTargetTracking::imageCB(
      }
 }
 
-void UAVTargetTracking::imageOdomCB(
+void KCFTargetTracking::imageOdomCB(
     const sensor_msgs::Image::ConstPtr &image_msg,
     const nav_msgs::Odometry::ConstPtr &odom_msg) {
 
@@ -397,7 +397,7 @@ int main(int argc, char *argv[]) {
     ros::init(argc, argv, "kernelized_correlation_filters");
     ros::NodeHandle nh;
     ros::NodeHandle pnh("~");
-    UAVTargetTracking kcf(nh, pnh);
+    KCFTargetTracking kcf(nh, pnh);
     ros::spin();
     return 0;
 }
