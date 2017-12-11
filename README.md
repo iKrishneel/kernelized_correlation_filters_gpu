@@ -40,7 +40,7 @@ Running
 ```bash
  $ roslaunch kernelized_correlation_filters_gpu kernelized_correlation_filters_gpu.launch <options>
 ```
-options:
+**<options>**
 
 In the launch file there are number of options that can be set according to how you what the algorithm to run. Brief descriptions are as follows:
   - `image` [sensor_msgs/Image]: - input image topic name
