@@ -53,3 +53,12 @@ In the launch file there are number of options that can be set according to how 
 Results
 ------------
 The video results of this algorithm can be [viwed here](https://drive.google.com/drive/folders/1owpZppROkzcVwQ6uguLHjkqmszy1XNBB?usp=sharing)
+
+Reference
+------------
+```
+Krishneel Chaudhary, Moju Chou, Fan Shi, Xiangyu Chen, Kei Okada, Masayuki Inaba:  
+Robust Real-time Visual Tracking Using Dual-Frame Deep Comparison
+Network Integrated with Correlation Filters, IEEE/RSJ International Conference on Intelligent Robots and
+Systems (IROS 2017), Vancouver, Canada. September 24 - 28, 2017
+```
