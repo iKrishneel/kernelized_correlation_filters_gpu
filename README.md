@@ -57,10 +57,8 @@ The video results of this algorithm can be [viwed here](https://drive.google.com
 Reference
 ------------
 ```
-[
 Krishneel Chaudhary, Moju Chou, Fan Shi, Xiangyu Chen, Kei Okada, Masayuki Inaba:  
 Robust Real-time Visual Tracking Using Dual-Frame Deep Comparison
 Network Integrated with Correlation Filters, IEEE/RSJ International Conference on Intelligent Robots and
 Systems (IROS 2017), Vancouver, Canada. September 24 - 28, 2017
-]
 ```
