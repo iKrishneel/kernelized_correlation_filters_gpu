@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(uav_target_tracking)
+project(kernelized_correlation_filters_gpu)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -137,7 +137,7 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
  INCLUDE_DIRS include
- LIBRARIES uav_target_tracking
+ LIBRARIES kernelized_correlation_filters_gpu
  CATKIN_DEPENDS roscpp rospy
  DEPENDS system_lib
 )
@@ -146,29 +146,29 @@ catkin_package(
 ## Build ##
 ###########
 
-set(PATH_GSLICR ${CMAKE_CURRENT_SOURCE_DIR}/src/drift_compensation/gslicr_engine)
-add_subdirectory(${PATH_GSLICR}/ORUtils)
-set(GSLICR_LIB
-  ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_core_engine.h
-  ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine.h
-  ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine_GPU.h
-  ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine_shared.h
-  ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_core_engine.cpp
-  ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine.cpp
-  ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine_GPU.cu
-  ${PATH_GSLICR}/gSLICr_Lib/objects/gSLICr_settings.h
-  ${PATH_GSLICR}/gSLICr_Lib/objects/gSLICr_spixel_info.h
-  ${PATH_GSLICR}/gSLICr_Lib/gSLICr_defines.h
-  ${PATH_GSLICR}/gSLICr_Lib/gSLICr.h
+# set(PATH_GSLICR ${CMAKE_CURRENT_SOURCE_DIR}/src/drift_compensation/gslicr_engine)
+# add_subdirectory(${PATH_GSLICR}/ORUtils)
+# set(GSLICR_LIB
+#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_core_engine.h
+#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine.h
+#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine_GPU.h
+#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine_shared.h
+#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_core_engine.cpp
+#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine.cpp
+#   ${PATH_GSLICR}/gSLICr_Lib/engines/gSLICr_seg_engine_GPU.cu
+#   ${PATH_GSLICR}/gSLICr_Lib/objects/gSLICr_settings.h
+#   ${PATH_GSLICR}/gSLICr_Lib/objects/gSLICr_spixel_info.h
+#   ${PATH_GSLICR}/gSLICr_Lib/gSLICr_defines.h
+#   ${PATH_GSLICR}/gSLICr_Lib/gSLICr.h
 
-  src/drift_compensation/object_proposal_generation.cpp
-  src/drift_compensation/loss_target_pursuit.cpp
-  src/drift_compensation/crop_feature_space.cu
-  src/drift_compensation/superpixel_cluster_weights.cu
-  src/drift_compensation/summed_area_table.cu
+#   src/drift_compensation/object_proposal_generation.cpp
+#   src/drift_compensation/loss_target_pursuit.cpp
+#   src/drift_compensation/crop_feature_space.cu
+#   src/drift_compensation/superpixel_cluster_weights.cu
+#   src/drift_compensation/summed_area_table.cu
 
-  src/drift_compensation/tracking_target_detector.cpp
-)
+#   src/drift_compensation/tracking_target_detector.cpp
+# )
 
 
 ## Specify additional locations of header files
@@ -179,19 +179,19 @@ include_directories(
 )
 
 ## Declare a C++ library
-# add_library(uav_target_tracking
+# add_library(kernelized_correlation_filters_gpu
 #   src/${PROJECT_NAME}/uav_target_tracking.cpp
 # )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(uav_target_tracking ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(kernelized_correlation_filters_gpu ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-# add_executable(uav_target_tracking_node src/uav_target_tracking_node.cpp)
+# add_executable(kernelized_correlation_filters_gpu_node src/uav_target_tracking_node.cpp)
 link_directories(${CAFFE_LINK_LIBRARAY})
-cuda_add_executable(uav_target_tracking_node
+cuda_add_executable(kernelized_correlation_filters_gpu_node
   src/uav_target_tracking_node.cpp
   src/kernelized_correlation_filters.cpp
   src/deep_feature_extraction.cpp
@@ -202,23 +202,21 @@ cuda_add_executable(uav_target_tracking_node
   src/cuda/threadFenceReduction_kernel.cu
   src/cuda/fast_maths_kernel.cu
   src/cuda/spatial_feature_pyramid_kernel.cu
-
-  ${GSLICR_LIB}
 )
-cuda_add_cufft_to_target(uav_target_tracking_node)
-cuda_add_cublas_to_target(uav_target_tracking_node)
+cuda_add_cufft_to_target(kernelized_correlation_filters_gpu_node)
+cuda_add_cublas_to_target(kernelized_correlation_filters_gpu_node)
 
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-# add_dependencies(uav_target_tracking_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(kernelized_correlation_filters_gpu_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(uav_target_tracking_node
+target_link_libraries(kernelized_correlation_filters_gpu_node
   ${catkin_LIBRARIES} ${OpenCV_LIBS}  caffe glog
   )
 
-# target_link_libraries(uav_target_tracking_node
+# target_link_libraries(kernelized_correlation_filters_gpu_node
 #   ${catkin_LIBRARIES}
 # )
 
@@ -237,7 +235,7 @@ target_link_libraries(uav_target_tracking_node
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS uav_target_tracking uav_target_tracking_node
+# install(TARGETS kernelized_correlation_filters_gpu kernelized_correlation_filters_gpu_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
