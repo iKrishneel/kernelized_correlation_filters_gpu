@@ -56,8 +56,8 @@ The video results of this algorithm can be [viwed here](https://drive.google.com
 
 ![](data/motocross.gif)
 <img src="data/mbzirc_rc.gif" width="300" height="169" />
-![](data/mbzirc_human.gif)
-![](data/mbzirc_rc.gif)
+<img src="data/mbzirc_human.gif" width="300" height="169" />
+
 
 Reference
 ------------
