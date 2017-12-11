@@ -55,6 +55,8 @@ Results
 The video results of this algorithm can be [viwed here](https://drive.google.com/drive/folders/1owpZppROkzcVwQ6uguLHjkqmszy1XNBB?usp=sharing)
 
 ![](data/motocross.gif)
+![](data/mbzirc_human.gif)
+![](data/mbzirc_rc.gif)
 
 Reference
 ------------
