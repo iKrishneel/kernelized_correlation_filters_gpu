@@ -49,3 +49,7 @@ In the launch file there are number of options that can be set according to how 
   - `init_from_detector` [Bool]: - flag for alterning how the tracker will be initialized.
   - `runtype_without_uav` [Bool]: - flag to specify if tracking on uav so the tracker can use odom for height based scale estimation
 
+
+Results
+------------
+The video results of this algorithm can be [viwed here](https://drive.google.com/drive/folders/1owpZppROkzcVwQ6uguLHjkqmszy1XNBB?usp=sharing)
