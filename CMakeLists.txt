@@ -29,11 +29,12 @@ set(CUDA_NVCC_FLAGS
 
 if (${CUDA_VERSION} VERSION_GREATER  "7.0" AND ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "5.0")
   set(CUDA_NVCC_FLAGS --ptxas-options=-v -std=c++11 --use_fast_math -lcufft -Xcompiler "-w" -lcublas)
-elseif(${CUDA_VERSION} MATCHES "8.0")
+elseif(${CUDA_VERSION} VERSION_GREATER "8.0")
   set(CUDA_NVCC_FLAGS --ptxas-options=-v --use_fast_math -lcufft -Xcompiler "-w" -lcublas)
 endif()
 
 set(CAFFE_INCLUDEDIR 
+  $ENV{CAFFE_ROOT}/.build_release/src
   $ENV{CAFFE_ROOT}/include 
   $ENV{CAFFE_ROOT}/distribute/include 
   $ENV{CAFFE_ROOT}/build/include)
