@@ -1171,7 +1171,7 @@ void KernelizedCorrelationFiltersGPU::filterVisualization(
        y = (filter_size.height * sidey);
     }
     cv::applyColorMap(all_filters, all_filters, cv::COLORMAP_JET);
-    cv::namedWindow("filters", CV_WINDOW_NORMAL);
+    cv::namedWindow("filters", cv::WINDOW_NORMAL);
     cv::imshow("filters", all_filters);
     // cv::waitKey(0);
 }

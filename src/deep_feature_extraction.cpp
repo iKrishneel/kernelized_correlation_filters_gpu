@@ -74,7 +74,7 @@ void FeatureExtractor::getFeatures(
        return;
     }
     if (image.channels() < 3) {
-       cv::cvtColor(image, image, CV_GRAY2BGR);
+        cv::cvtColor(image, image, cv::COLOR_GRAY2BGR);
     }
     if (this->mean_.empty()) {
        ROS_WARN_ONCE("IMAGENET MEAN NOT SET");
@@ -102,10 +102,10 @@ void FeatureExtractor::getFeatures(
        return;
     }
     if (image1.channels() != 3) {
-       cv::cvtColor(image1, image1, CV_GRAY2BGR);
+        cv::cvtColor(image1, image1, cv::COLOR_GRAY2BGR);
     }
     if (image2.channels() != 3) {
-       cv::cvtColor(image2, image2, CV_GRAY2BGR);
+        cv::cvtColor(image2, image2, cv::COLOR_GRAY2BGR);
     }
     assert(this->feature_extractor_net_->phase() == caffe::TEST);
     
