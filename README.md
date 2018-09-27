@@ -1,5 +1,8 @@
 Kernelized Correlation Filters GPU
 ====================================
+
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/fc46b3a0951d47a589bf31d611c5a312)](https://app.codacy.com/app/iKrishneel/kernelized_correlation_filters_gpu?utm_source=github.com&utm_medium=referral&utm_content=iKrishneel/kernelized_correlation_filters_gpu&utm_campaign=Badge_Grade_Dashboard)
+
 A correlation filters and deep learning based object tracking algorithm. The algorithm is implemented on the GPU using CUDA C++. 
 
 ------------
